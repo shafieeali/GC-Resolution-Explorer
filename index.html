@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chromatographic resolution explorer (CHM4130 PS4, Problem 40)</title>
+<style>
+:root{--ink:#1f2d3a;--navy:#163e63;--steel:#326b9e;--muted:#566676;--rule:#cfdbe6;--panel:#f1f5f9;--bg:#ffffff;--grid:#e6edf3;--a:#22806b;--b:#6a4fb3;--fill:rgba(50,107,158,.12);--good:#2f7d4f;--warn:#9a5f12;--alert:#b23a48;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--ink:#e3eaf1;--navy:#a9cdf0;--steel:#7fb0dc;--muted:#9fb0c0;--rule:#34475a;--panel:#17232f;--bg:#0f1820;--grid:#1f2e3b;--a:#5cc4a8;--b:#ad98ee;--fill:rgba(127,176,220,.14);--good:#74cf98;--warn:#e7b066;--alert:#f0828f;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Arial,Helvetica,sans-serif}
+main{max-width:900px;margin:0 auto;padding:22px 18px 34px}
+h1{font-size:1.45rem;color:var(--navy);margin:0 0 2px}
+.src{margin:0 0 14px;color:var(--muted);font-size:.9rem}
+.lede{margin:0 0 10px;max-width:72ch}
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin:10px 0}
+.controls label{font-size:.95rem;min-width:15em}
+input[type=range]{width:min(340px,100%);accent-color:var(--steel)}
+output{font-weight:700;font-variant-numeric:tabular-nums;min-width:4em}
+button{font:inherit;font-size:.9rem;padding:5px 11px;border:1px solid var(--steel);border-radius:4px;background:transparent;color:var(--navy);cursor:pointer}
+button:hover{background:var(--panel)}
+:focus-visible{outline:2px solid var(--steel);outline-offset:2px}
+.readout{display:flex;flex-wrap:wrap;margin:12px 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.readout div{padding:8px 18px 8px 0;margin-right:18px;border-right:1px solid var(--rule)}
+.readout div:last-child{border-right:0;margin-right:0}
+.readout span{display:block;font-size:.8rem;color:var(--muted)}
+.readout b{font-size:1.08rem;font-variant-numeric:tabular-nums}
+.chart{overflow-x:auto;margin-top:6px}
+.chart svg{min-width:620px}
+svg{display:block;width:100%;height:auto}
+.ax{stroke:var(--muted);stroke-width:1}
+.gl{stroke:var(--grid);stroke-width:1}
+.tk{fill:var(--muted);font-size:12px}
+.axt{fill:var(--ink);font-size:13px}
+.halo{paint-order:stroke;stroke:var(--bg);stroke-width:4px;stroke-linejoin:round}
+.legend{display:flex;flex-wrap:wrap;gap:6px 20px;font-size:.88rem;color:var(--muted);margin-top:6px}
+.sw{display:inline-block;width:24px;vertical-align:middle;margin-right:6px}
+.summary{border-left:3px solid var(--steel);background:var(--panel);padding:10px 14px;margin:12px 0;max-width:80ch}
+.summary p{margin:0}
+.note{font-size:.9rem;color:var(--muted);max-width:76ch}
+</style>
+</head>
+<body>
+<main>
+<h1>Chromatographic resolution explorer</h1>
+<p class="src">CHM4130 Practice Problem Set 4, Problems 40, 42 and 43</p>
+<p class="lede">Two neighboring peaks elute at 16.40 and 17.63 min. Slide the resolution to make the peaks narrower or wider and watch them go from one merged band to baseline resolved. R<sub>s</sub> = 2(t<sub>B</sub> − t<sub>A</sub>) / (W<sub>A</sub> + W<sub>B</sub>).</p>
+
+<div class="controls">
+  <label for="rs">Resolution, R<sub>s</sub></label>
+  <input type="range" id="rs" min="0.5" max="2.5" step="0.01" value="1.06">
+  <output id="rsOut" for="rs">1.06</output>
+</div>
+<div class="controls">
+  <button type="button" data-rs="0.75">0.75</button>
+  <button type="button" data-rs="1.00">1.00</button>
+  <button type="button" data-rs="1.06">1.06 (Problem 40)</button>
+  <button type="button" data-rs="1.50">1.50 (baseline)</button>
+  <button type="button" data-rs="1.82">1.82</button>
+</div>
+<div class="controls">
+  <label for="size">Size of peak B compared with A</label>
+  <input type="range" id="size" min="0.2" max="2" step="0.05" value="1">
+  <output id="sizeOut" for="size">1.00×</output>
+</div>
+
+<div class="chart"><svg id="plot" viewBox="0 0 820 370" role="img" aria-label="Simulated peaks A and B and the detector signal they add up to"></svg></div>
+<div class="legend">
+  <span><i class="sw" style="border-top:2px dashed var(--a)"></i>Peak A alone</span>
+  <span><i class="sw" style="border-top:2px dashed var(--b)"></i>Peak B alone</span>
+  <span><i class="sw" style="border-top:3px solid var(--navy)"></i>What the detector records (A + B)</span>
+  <span><i class="sw" style="border-top:2px solid var(--muted)"></i>Bars under the axis: base widths W = 4σ</span>
+</div>
+
+<div class="readout" aria-live="polite">
+  <div><span>Base widths, W<sub>A</sub> and W<sub>B</sub></span><b id="rW"></b></div>
+  <div><span>Average plate count, N</span><b id="rN"></b></div>
+  <div><span>Plate height, H</span><b id="rH"></b></div>
+  <div><span>Signal at the valley</span><b id="rV"></b></div>
+  <div><span>Separation</span><b id="rS"></b></div>
+</div>
+<div class="summary" aria-live="polite"><p id="sum"></p></div>
+
+<p class="note">Peak positions stay at 16.40 and 17.63 min and only the widths change, as when a better column lowers the plate height H at the same length and run time (Problem 43). The widths at R<sub>s</sub> = 1.06 are Problem 40’s values, W<sub>A</sub> = 1.11 min and W<sub>B</sub> = 1.21 min. N and H are scaled from Problem 42 (N = 3,445) and Problem 43 (H = 0.0087 cm) using R<sub>s</sub> ∝ √N. Changing peak B’s size changes only its area, not its position or width.</p>
+</main>
+
+<script>
+(function(){
+  var NS='http://www.w3.org/2000/svg';
+  function el(tag,attrs,text){var e=document.createElementNS(NS,tag);for(var k in attrs)e.setAttribute(k,attrs[k]);if(text!=null)e.textContent=text;return e;}
+  var TA=16.40,TB=17.63,RS0=1.06,WA0=1.11,WB0=1.21,N0=3445,H0=0.0087;
+  var X0=14,X1=20,W=820,H=370,PL=40,PR=24,PT=40,PB=66;
+  var rs=document.getElementById('rs'),size=document.getElementById('size'),svg=document.getElementById('plot');
+  function X(t){return PL+(t-X0)/(X1-X0)*(W-PL-PR);}
+  function g(t,c,s){var z=(t-c)/s;return Math.exp(-0.5*z*z)/(s*2.5066283);}
+  function draw(){
+    var R=+rs.value,sz=+size.value;
+    document.getElementById('rsOut').textContent=R.toFixed(2);
+    document.getElementById('sizeOut').textContent=sz.toFixed(2)+'×';
+    var WA=WA0*RS0/R,WB=WB0*RS0/R,sA=WA/4,sB=WB/4;
+    var Np=N0*Math.pow(R/RS0,2),Hp=H0*Math.pow(RS0/R,2);
+    var n=1200,ts=[],a=[],b=[],s=[],i;
+    for(i=0;i<=n;i++){var t=X0+(X1-X0)*i/n;ts.push(t);var ya=g(t,TA,sA),yb=sz*g(t,TB,sB);a.push(ya);b.push(yb);s.push(ya+yb);}
+    var top=Math.max.apply(null,s)*1.16;
+    function Y(v){return H-PB-v/top*(H-PT-PB);}
+    function path(arr){var d='';for(var j=0;j<arr.length;j++)d+=(j?'L':'M')+X(ts[j]).toFixed(1)+' '+Y(arr[j]).toFixed(1);return d;}
+    // valley between the two maxima of the summed signal
+    var peaks=[];for(i=1;i<n;i++){if(s[i]>s[i-1]&&s[i]>=s[i+1]&&s[i]>0.02*Math.max(s[i],top))peaks.push(i);}
+    var valley=null;
+    if(peaks.length>=2){var p=peaks[0],q=peaks[peaks.length-1],mn=Infinity;for(i=p;i<=q;i++)mn=Math.min(mn,s[i]);valley=mn/Math.min(s[p],s[q])*100;}
+    while(svg.firstChild)svg.removeChild(svg.firstChild);
+    for(var t2=X0;t2<=X1+1e-9;t2+=1){
+      svg.appendChild(el('line',{x1:X(t2),y1:PT,x2:X(t2),y2:H-PB,'class':'gl'}));
+      svg.appendChild(el('text',{x:X(t2),y:H-PB+38,'text-anchor':'middle','class':'tk'},String(t2)));
+    }
+    svg.appendChild(el('text',{x:(PL+W-PR)/2,y:H-8,'text-anchor':'middle','class':'axt'},'Retention time (min)'));
+    svg.appendChild(el('text',{transform:'translate(18,'+((PT+H-PB)/2)+') rotate(-90)','text-anchor':'middle','class':'axt'},'Detector signal'));
+    svg.appendChild(el('path',{d:path(s)+'L'+X(X1)+' '+Y(0)+'L'+X(X0)+' '+Y(0)+'Z',fill:'var(--fill)',stroke:'none'}));
+    svg.appendChild(el('path',{d:path(a),fill:'none',stroke:'var(--a)','stroke-width':2,'stroke-dasharray':'6 4'}));
+    svg.appendChild(el('path',{d:path(b),fill:'none',stroke:'var(--b)','stroke-width':2,'stroke-dasharray':'6 4'}));
+    svg.appendChild(el('path',{d:path(s),fill:'none',stroke:'var(--navy)','stroke-width':3}));
+    svg.appendChild(el('line',{x1:PL,y1:H-PB,x2:W-PR,y2:H-PB,'class':'ax'}));
+    // base-width bars
+    [[TA,WA,'var(--a)',9],[TB,WB,'var(--b)',19]].forEach(function(w,k){
+      var y=H-PB+w[3],xl=Math.max(PL,X(w[0]-w[1]/2)),xr=Math.min(W-PR,X(w[0]+w[1]/2));
+      svg.appendChild(el('line',{x1:xl,y1:y,x2:xr,y2:y,stroke:w[2],'stroke-width':2.5}));
+      svg.appendChild(el('line',{x1:xl,y1:y-4,x2:xl,y2:y+4,stroke:w[2],'stroke-width':1.5}));
+      svg.appendChild(el('line',{x1:xr,y1:y-4,x2:xr,y2:y+4,stroke:w[2],'stroke-width':1.5}));
+    });
+    // peak labels
+    var ia=Math.round((TA-X0)/(X1-X0)*n),ib=Math.round((TB-X0)/(X1-X0)*n);
+    svg.appendChild(el('text',{x:X(TA)-6,y:Y(Math.max(s[ia],a[ia]))-10,'text-anchor':'end','font-size':13,'font-weight':'bold',fill:'var(--a)','class':'halo'},'A, 16.40 min'));
+    svg.appendChild(el('text',{x:X(TB)+6,y:Y(Math.max(s[ib],b[ib]))-10,'text-anchor':'start','font-size':13,'font-weight':'bold',fill:'var(--b)','class':'halo'},'B, 17.63 min'));
+    // readouts
+    document.getElementById('rW').textContent=WA.toFixed(2)+' and '+WB.toFixed(2)+' min';
+    document.getElementById('rN').textContent=Math.round(Np).toLocaleString('en-US')+' plates';
+    document.getElementById('rH').textContent=Hp.toPrecision(3)+' cm';
+    document.getElementById('rV').textContent=valley==null?'no valley':(valley<1?'below 1%':(valley<10?valley.toFixed(1):Math.round(valley))+'% of the smaller peak');
+    var st=document.getElementById('rS'),cls,col;
+    if(R<1){cls='Overlapping';col='var(--alert)';}
+    else if(R<1.5){cls='Partly resolved';col='var(--warn)';}
+    else{cls='Baseline resolved';col='var(--good)';}
+    st.textContent=cls;st.style.color=col;
+    var sum='Rs = '+R.toFixed(2)+'. ';
+    if(Math.abs(R-1.06)<0.005)sum+='This is Problem 40’s column. ';
+    if(valley==null)sum+='The two peaks merge into one band with no valley between them, so they are not resolved.';
+    else if(valley>=1)sum+='A valley appears, but between the peaks the signal only falls to '+(valley<10?valley.toFixed(1):Math.round(valley))+'% of the smaller peak’s height'+(R<1.5?', so the peaks are not baseline resolved.':'. That is close enough to the baseline to count as baseline resolution.');
+    else sum+='Between the peaks the signal returns to the baseline, with a clear gap between them.';
+    if(sz<0.5&&(valley==null||valley>50))sum+=' A small peak next to a large one is easy to miss: at this resolution peak B shows up as little more than a shoulder.';
+    document.getElementById('sum').textContent=sum;
+  }
+  rs.addEventListener('input',draw);size.addEventListener('input',draw);
+  document.querySelectorAll('button[data-rs]').forEach(function(btn){btn.addEventListener('click',function(){rs.value=btn.getAttribute('data-rs');draw();});});
+  draw();
+})();
+</script>
+</body>
+</html>
